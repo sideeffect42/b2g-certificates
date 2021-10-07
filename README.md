@@ -25,4 +25,4 @@ Windows Batch(Need to add Android Platform Tools directory to PATH):
 add-certificates-to-phone.bat
 ```
 
-
+P.S.: NSS certutil compiled by myself.
