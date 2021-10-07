@@ -14,19 +14,15 @@ cd b2g-certificates
 chmod +x ./add-certificates-to-phone.sh
 ./add-certificates-to-phone.sh
 
-# If you are using WSL, please run this (Need to set Android Platform Tools as an environment variable)
+# If you are using WSL, please run this (Need to add Android Platform Tools directory to PATH)
 chmod +x ./add-certificates-to-phone-wsl.sh
 ./add-certificates-to-phone-wsl.sh
 ```
 
-Windows Batch(Testing and NSS `certutil` reported an error):
+Windows Batch(Need to add Android Platform Tools directory to PATH):
 
 ```batch
 add-certificates-to-phone.bat
 ```
 
-NSS (Windows, 3.35.0, fron AdGuard) `certutil` reported an error:
-```
-certutil.exe: function failed: SEC_ERROR_LEGACY_DATABASE: The certificate/key database is in an old, unsupported format.
-```
 
