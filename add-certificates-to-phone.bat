@@ -1,6 +1,7 @@
 @echo off
 :: Set environment variable
 set CERT_DIR=certs
+set TEMP=tmp
 set CERT=cert9.db
 set KEY=key4.db
 set PKCS11=pkcs11.txt
@@ -12,28 +13,27 @@ if DB_DIR == "" (
 )
 
 :: Cleanup
-del /f %CERT%
-del /f %KEY%
-del /f %PKCS11%
+rmdir /s /q %TEMP%
+mkdir %TEMP%
 
 :: Pull files from phone
 @echo Getting %CERT%
-adb pull %DB_DIR%/%CERT% .
+adb pull %DB_DIR%/%CERT% ./%TEMP%/
 
 @echo Getting %KEY%
-adb pull %DB_DIR%/%KEY% .
+adb pull %DB_DIR%/%KEY% ./%TEMP%/
 
 @echo Getting %PKCS11%
-adb pull %DB_DIR%/%PKCS11% .
+adb pull %DB_DIR%/%PKCS11% ./%TEMP%/
 
 :: Clear password and add certificates
 @echo Set password (hit enter twice to set an empty password)
-"bin/nss/certutil.exe" -d 'sql:.' -N
+"bin/nss/certutil.exe" -d %TEMP% -N
 
 @echo Adding certificats
 for %%i in (%CERT_DIR%/*) do (
     echo Adding certificate %%i
-    "bin/nss/certutil.exe" -d 'sql:.' -A -n "`basename %%i`" -t "C,C,TC" -i %CERT_DIR%/%%i
+    "bin/nss/certutil.exe" -d %TEMP% -A -n "`basename %%i`" -t "C,C,TC" -i %CERT_DIR%/%%i
 )
 
 :: Push files to phone
@@ -41,11 +41,11 @@ for %%i in (%CERT_DIR%/*) do (
 adb shell stop b2g
 
 @echo copying %CERT%
-adb push ./%CERT% %DB_DIR%/%CERT%
+adb push ./%TEMP%/%CERT% %DB_DIR%/%CERT%
 @echo copying %KEY%
-adb push ./%KEY% %DB_DIR%/%KEY%
+adb push ./%TEMP%/%KEY% %DB_DIR%/%KEY%
 @echo copying %PKCS11%
-adb push ./%PKCS11% %DB_DIR%/%PKCS11%
+adb push ./%TEMP%/%PKCS11% %DB_DIR%/%PKCS11%
 
 @echo Starting B2G
 adb shell start b2g
