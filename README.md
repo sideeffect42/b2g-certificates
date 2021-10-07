@@ -1,23 +1,32 @@
-b2g-certificates
-================
+# b2g-certificates
 
 A shell script to add root certificates to Firefox OS
 
-*The script originates at Enrico's [pending.io](http://www.pending.io/add-cacert-root-certificate-to-firefox-os/) where the discussion came up to enhance the script. The following is the initial documentation taken from that page as well. Anyone is welcome to contribute.*
+[Original README](README-original.md)
 
-While being quite happy with my new Firefox OS phone so far, the biggest stopper for me was that, like all Mozilla products, the root certificate of [CAcert](https://www.cacert.org) was not included and so I could not access sites using certificates assured by CAcert.
+Linux (Debian & Ubuntu): 
 
-Recent versions of [Gaia](https://github.com/mozilla-b2g/gaia) allow to accept untrusted site certificates in the browser but in case you want to use an IMAP server or Caldav server which is using a CAcert assured certificate, you are still stuck.
+```bash
+sudo apt-get install libnss3-tools adb wget
+git clone https://github.com/openGiraffes/b2g-certificates
+cd b2g-certificates
 
-Based on a post by [Carmen Jiménez Cabezas](https://groups.google.com/forum/?fromgroups#!topic/mozilla.dev.b2g/B57slgVO3TU), I wrote a script to read the certificate database from the phone (via adb), add some certificates and then write the database back to the phone. After this procedure, the CAcert root certificate (or any other) are known by the phone and can be used. This enabled me to access my own IMAP server via SSL from the Email app and also use a self-hosted groupware as Caldav server for the Calendar app via HTTPS.
+chmod +x ./add-certificates-to-phone.sh
+./add-certificates-to-phone.sh
 
-How-to
-------
+# If you are using WSL, please run this (Need to set Android Platform Tools as an environment variable)
+chmod +x ./add-certificates-to-phone-wsl.sh
+./add-certificates-to-phone-wsl.sh
+```
 
-Save the script somewhere on your system.
+Windows Batch(Testing and NSS `certutil` reported an error):
 
-Once done, add a new directory in the directory where you stored the script and place the certificates which you want to add to the phone's database in the sub directory 'certs'. For CAcert, this would be the class 3 root certificate in PEM format as found on the [CAcert website](https://www.cacert.org/index.php?id=3).
+```batch
+add-certificates-to-phone.bat
+```
 
-Then simply run the script.
+NSS (Windows, 3.35.0, fron AdGuard) `certutil` reported an error:
+```
+certutil.exe: function failed: SEC_ERROR_LEGACY_DATABASE: The certificate/key database is in an old, unsupported format.
+```
 
-Note: before running the script you need to enable 'Remote debugging' in the Developer settings menu and connect your phone with your PC using a USB cable (or more general: get adb working).
