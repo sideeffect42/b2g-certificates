@@ -1,13 +1,21 @@
 @echo off
 :: Set environment variable
+@echo Enter the NSS DB root directory ( Such as Nokia, enter /data/b2g/mozilla )
+@echo Some phones may be different.
+@echo For more information, please visit: https://github.com/openGiraffes/b2g-certificates
+@echo:
+set /p ROOT_DIR_DB=
+
 set CERT_DIR=certs
 set TEMP=tmp
 set CERT=cert9.db
 set KEY=key4.db
 set PKCS11=pkcs11.txt
-for /f %%i in ('adb shell "ls -d /data/b2g/mozilla/*.default 2>/dev/null" ^|^| "bin/sed.exe" "s/default.*$/default/g"') do set DB_DIR=%%i
+for /f %%i in ('adb shell "ls -d %ROOT_DIR_DB%/*.default 2>/dev/null" ^|^| "bin/sed.exe" "s/default.*$/default/g"') do set DB_DIR=%%i
+@echo %DB_DIR%
 
 if DB_DIR == "" (
+    @echo:
     echo "Profile directory does not exists. Please start the b2g process at least once before running this script."
     pause
 )
@@ -30,7 +38,7 @@ adb pull %DB_DIR%/%PKCS11% ./%TEMP%/
 @echo Set password (hit enter twice to set an empty password)
 "bin/nss/certutil.exe" -d %TEMP% -N
 
-@echo Adding certificats
+@echo Adding certificates
 for %%i in (%CERT_DIR%/*) do (
     echo Adding certificate %%i
     "bin/nss/certutil.exe" -d %TEMP% -A -n "`basename %%i`" -t "C,C,TC" -i %CERT_DIR%/%%i

@@ -1,7 +1,35 @@
 #!/bin/bash
 
+function log
+{
+    GREEN="\E[32m"
+    RESET="\033[00;00m"
+    echo -e "${GREEN}$1${RESET}"
+}
+
+usage() {
+  echo "Usage: ${0} [-r] (dir) | [-d] | [-h]" 1>&2
+  echo ""
+  echo "-r (dir) Enter the NSS DB root directory ( Such as Nokia, enter /data/b2g/mozilla )"
+  echo "         Some phones may be different."
+  echo "         For more information, please visit: https://github.com/openGiraffes/b2g-certificates"
+  echo "-d Use default directory (/data/b2g/mozilla)"
+  echo "-h Output this help."
+  exit 1
+}
+
+ROOT_DIR_DB=
+
+while getopts "dhr:" options
+do
+    case ${options} in
+        d) ROOT_DIR_DB=/data/b2g/mozilla;;
+        r) ROOT_DIR_DB=$OPTARG;;
+        h) usage;;
+    esac
+done
+
 CERT_DIR=certs
-ROOT_DIR_DB=/data/b2g/mozilla
 CERT=cert9.db
 KEY=key4.db
 PKCS11=pkcs11.txt
@@ -12,13 +40,6 @@ if [ "${DB_DIR}" = "" ]; then
 least once before running this script."
   exit 1
 fi
-
-function log
-{
-    GREEN="\E[32m"
-    RESET="\033[00;00m"
-    echo -e "${GREEN}$1${RESET}"
-}
 
 # cleanup
 rm -f ./$CERT
