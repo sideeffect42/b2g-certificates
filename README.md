@@ -19,7 +19,7 @@ Usage: add-certificates-to-phone.sh [-r] (dir) | [-d] | [-h]
 Linux (Debian & Ubuntu): 
 
 ```bash
-sudo apt-get install libnss3-tools adb wget
+sudo apt install libnss3-tools adb wget
 git clone https://github.com/openGiraffes/b2g-certificates
 cd b2g-certificates
 
