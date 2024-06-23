@@ -1,82 +1,149 @@
-#!/bin/bash
+#!/bin/sh
+set -e -u
 
-function log
-{
-    GREEN="\E[32m"
-    RESET="\033[00;00m"
-    echo -e "${GREEN}$1${RESET}"
+# FIXME: make this script work when not executed from current directory
+
+is_wsl() {
+	test -r /proc/version && grep -iF Microsoft /proc/version >/dev/null 2>&1
+}
+
+if is_wsl
+then
+	BIN_SUFFIX=.exe
+else
+	BIN_SUFFIX=
+fi
+
+for _cmd in ADB=adb CERTUTIL=certutil SED=sed
+do
+  if command -v "${_cmd#*=}${BIN_SUFFIX-}" >/dev/null 2>&1
+  then
+    readonly "${_cmd%%=*}=${_cmd#*=}${BIN_SUFFIX-}"
+  else
+    printf '%s: command not found\n' "${_cmd#*=}" >&2
+    exit 1
+  fi
+done
+unset -v _cmd
+
+GREEN='\033[32m'
+RESET='\033[00;00m'
+log() {
+    printf "${GREEN}%s${RESET}\n" "$*"
 }
 
 usage() {
-  echo "Usage: ${0} [-r] (dir) | [-d] | [-h]" 1>&2
-  echo ""
-  echo "-r (dir) Enter the NSS DB root directory ( Such as Nokia, enter /data/b2g/mozilla )"
-  echo "         Some phones may be different."
-  echo "         For more information, please visit: https://github.com/openGiraffes/b2g-certificates"
-  echo "-d Use default directory (/data/b2g/mozilla)"
-  echo "-h Output this help."
-  exit 1
+    cat <<-EOF >&2
+	Usage: ${0} [ -r dir | -d | -h ]
+
+	-r (dir) Enter the NSS DB root directory (usually /data/b2g/mozilla)
+	         Some phones may be different.
+	         For more information, please visit: https://github.com/openGiraffes/b2g-certificates
+	-d Use default directory (/data/b2g/mozilla)
+	-h Output this help.
+	EOF
+	exit 1
 }
 
 ROOT_DIR_DB=
 
-while getopts "dhr:" options
+while getopts 'dhr:' option
 do
-    case ${options} in
-        d) ROOT_DIR_DB=/data/b2g/mozilla;;
-        r) ROOT_DIR_DB=$OPTARG;;
-        h) usage;;
-    esac
+	case ${option}
+	in
+		(d) ROOT_DIR_DB=/data/b2g/mozilla ;;
+		(r) ROOT_DIR_DB=${OPTARG} ;;
+		(h) usage ;;
+	esac
 done
+unset -v option
 
 CERT_DIR=certs
 CERT=cert9.db
 KEY=key4.db
 PKCS11=pkcs11.txt
-DB_DIR=`adb shell "ls -d ${ROOT_DIR_DB}/*.default 2>/dev/null" | sed "s/default.*$/default/g"`
+readonly CERT_DIR CERT KEY PKCS11
 
-if [ "${DB_DIR}" = "" ]; then
-  echo "Profile directory does not exist. Please start the b2g process at
-least once before running this script."
-  exit 1
-fi
+test "$(${ADB:?} shell "test -r '${ROOT_DIR_DB}'; echo \$?")" -eq 0 || {
+	printf 'Cannot access %s. Is your device rooted?\n' "${ROOT_DIR_DB}" >&2
+	exit 1
+}
+
+DB_NAME=$(${ADB:?} shell "cat '${ROOT_DIR_DB}/profiles.ini'" \
+	| awk '
+	  BEGIN { RS = "\r?\n" }
+
+	  /^\[/ {
+		  if (default) exit
+		  default = 0
+		  name = ""
+	  }
+	  /^(Default|Path)=/ {
+		  t = substr($0, index($0, "=")+1)
+		  sub(/\r$/, "", t)
+		  if (/^Path=/) { path = t }
+		  else if (/^Default=/) { default = int(t) }
+	  }
+	  END {
+		  if (default) {
+			  print path
+		  } else {
+			  exit 1
+		  }
+	  }')
+
+test -n "${DB_NAME}" || {
+	echo "Profile directory does not exist. Please start the b2g process at
+least once before running this script." >&2
+	exit 1
+}
+
+DB_DIR=${ROOT_DIR_DB:?}/${DB_NAME:?}
+
+${ADB:?} shell "test -d '${DB_DIR}'" || {
+	printf 'Profile directory %s does not exist.\n' "${DB_DIR}" >&2
+	exit 1
+}
 
 # cleanup
-rm -f ./$CERT
-rm -f ./$KEY
-rm -f ./$PKCS11
+rm -f "./${CERT}"
+rm -f "./${KEY}"
+rm -f "./${PKCS11}"
 
 # pull files from phone
 log "getting ${CERT}"
-adb pull ${DB_DIR}/${CERT} .
+${ADB:?} pull "${DB_DIR:?}/${CERT}" .
 log "getting ${KEY}"
-adb pull ${DB_DIR}/${KEY} .
+${ADB:?} pull "${DB_DIR:?}/${KEY}" .
 log "getting ${PKCS11}"
-adb pull ${DB_DIR}/${PKCS11} .
+${ADB:?} pull "${DB_DIR:?}/${PKCS11}" .
 
 # clear password and add certificates
-log "set password (hit enter twice to set an empty password)"
-certutil -d 'sql:.' -N
+{ echo;echo; } >.nsspw.txt
 
-log "adding certificats"
-for i in ${CERT_DIR}/*
+${CERTUTIL:?} -d 'sql:.' -N -f .nsspw.txt -@ .nsspw.txt >/dev/null
+
+log 'adding certificates...'
+for f in "${CERT_DIR}"/*
 do
-  log "Adding certificate $i"
-  certutil -d 'sql:.' -A -n "`basename $i`" -t "C,C,TC" -i $i
+	log "- ${f}"
+	${CERTUTIL:?} -d 'sql:.' -A -n "${f##*/}" -t 'C,C,TC' -f .nsspw.txt <"${f}"
 done
+rm -f .nsspw.txt
+log 'updating certificates on phone...'
 
 # push files to phone
-log "stopping b2g"
-adb shell stop b2g
+log 'stopping b2g'
+${ADB:?} shell stop b2g
 
 log "copying ${CERT}"
-adb push ./${CERT} ${DB_DIR}/${CERT}
+${ADB:?} push ./${CERT} ${DB_DIR}/${CERT}
 log "copying ${KEY}"
-adb push ./${KEY} ${DB_DIR}/${KEY}
+${ADB:?} push ./${KEY} ${DB_DIR}/${KEY}
 log "copying ${PKCS11}"
-adb push ./${PKCS11} ${DB_DIR}/${PKCS11}
+${ADB:?} push ./${PKCS11} ${DB_DIR}/${PKCS11}
 
-log "starting b2g"
-adb shell start b2g
+log 'starting b2g'
+${ADB:?} shell start b2g
 
-log "Finished."
+log 'finished.'
